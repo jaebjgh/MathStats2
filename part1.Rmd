@@ -1,0 +1,180 @@
+---
+title: "Portfolio Project 2: Clustering and PCA"
+author: ""
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    df_print: paged
+    code_folding: show
+    highlight: tango
+    number_sections: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+# Setup
+
+```{r}
+# Load packages here
+library(tidyverse)
+library(factoextra)
+library(gridExtra)     
+```
+
+# Data
+Load the file countries.Rdata. 
+
+```{r}
+load("countries.Rdata")
+```
+
+It contains two objects: `df` is a data frame of 138 countries with information on 10 variables (see short descriptions below). `sf` is a simple features object that contains the geometries of the countries' borders. 
+
+* `life_expectancy`: average number of years a newborn child is expected to live
+* `HDI`: index that ranks countries by level of human development in terms of health, education, and living standard
+* `income_person`: GDP per capita 
+* `gini_coefficient`: income inequality - a higher number means more inequality.
+* `water`: percentage of people using at least basic water services.
+* `sanitation`: percentage of people using at least basic sanitation services
+* `calories`: measures the energy content of the food. 
+* `freedom`: index of political rights and civil liberties, on a range from 1 (most free) to 7 (least free)
+* `democracy`: index of quality of democracies between 0 and 100
+* `corruption`: score of perceptions of corruption by Transparency International. From 0 (highly corrupt) to 100 (very clean).
+* `broadband`: fixed subscriptions to high-speed access to the public Internet
+* `internet_users`: internet users in percentge of population
+* `covid_confirmed`: number of confirmed covid cases until 2021-06-05 per 1000 inhabitants
+
+
+# Exercise 1: Clustering
+Carry out a hierarchical clustering analysis. 
+
+## Exercise 1.1 
+Check whether it is necessary to preprocess the data. Justify your choice, and (if applicable) explain what the preprocessing steps are.
+
+### Antwort
+Ja, es ist notwendig, die Daten vorher zu verarbeiten. Zum Einen haben die Daten unterschiedliche Einheiten. Wir haben es mit der Lebenserwartung in Jahren zu tun und dem prozentualen Anteil der Bevölkerung, die einen Zugang zu Wasser hat. Zudem die Menge an Kalorien, die eine Person am Tag zu sich nimmt, etc.. Dazu kommt, dass die einzelnen Spalten unterschiedliche Datenweiten haben. Der Vergleich zwischen den Spalten ist somit nicht möglich, wir würden sonst Äpfel mit Birnen vergleichen.
+Die Spalte "iso_alpha" ist außerdem nicht numerisch.
+
+Die Daten müssen also zunächst standardisiert werden. Die Standardisierung geschieht, indem von den Daten die Mittelwerte der jeweiligen Spalten abgezogen werden, sodass der Mittelwert 0 ist. Danach müssen die Daten durch die Standardabweichungen geteilt werden. 
+```{r}
+df %>%
+  head()
+
+df %>%
+  select(-iso_alpha) %>%
+  apply(2, mean)
+
+df %>%
+  select(-iso_alpha) %>%
+  apply(2, sd)
+```
+
+## Exercise 1.2
+Name three possible distance measures for hierarchical clustering. Select an appropriate distance measure for the given type of data and justify your choice. Visualize a distance matrix for it.
+
+### Antwort
+Drei mögliche Distanzmaße für das hierarchische Clustering sind die euklidische, die Kosinus und die Pearson Distanz. 
+Die für diesen Datensatz sinnvollste Distanz ist die euklidische Distanz, da wir die Staaten beispielsweise in Industrie-, Schwellen- und Entwicklungsländer teilen wollen. Dafür müssen wir die konkreten Abstände zwischen den Werten der Variablen im DataFrame wissen. 
+Bei der Pearson Distanz könnten wir eher erkennen, ob sich Länder in bestimmten Bereichen ähnlich sind, also zum Beispiel, dass Argentinien in jeder Kategorie des Datensatzes einen doppelt so hohen Wert hat, wie Portugal (Nur ein Beispiel). Die Pearson Distanz würde die beiden Länder dann mit einer Geringen Distanz einstufen. 
+
+```{r fig.height=15}
+# The distance matrix will be large, adjust the fig.height such that is can be acceptably recognized
+
+d_eucl <- df %>%
+  select(-(iso_alpha)) %>%
+  get_dist(method = "euclidean", stand = TRUE)
+
+fviz_dist(d_eucl) +
+  geom_text(aes(label = round(value, 2)), size = 2)
+  
+```
+
+
+## Exercise 1.3
+Run agglomerative clustering with 4 different linkage methods and plot the dendrogramms. Assess the usefulness of these linkage methods, and choose your preferred linkage method. Justify your choice.
+
+### Anwort
+Die Linkage Methoden unterscheiden sich darin, auf welche Art und Weise zusammengehörende Cluster bestimmt werden. 
+1. Complete Linkage: Die größte Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
+2. Single Linkage: Die kleinste Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
+3. Average Linkage: Die durchschnittliche Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
+4. Centroid Linkage: Die Distance zwischen zwei Centroiden wird berechnet
+```{r fig.height=15} 
+# The dendrogram will be large, adjust the fig.height such that is can be acceptably recognized
+result <- hcut(
+    x = select(df, -iso_alpha), 
+    k = 4,
+    hc_func = "agnes",          
+    hc_metric = 'euclidean',  #with euclidean a histogram
+    hc_method = 'complete',
+    stand = TRUE)
+  fviz_dend(result, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+            main = glue::glue("Method: complete, Distance: euclidean"))
+```
+
+## Exercise 1.4
+Analyse how many clusters are suitable (in the sense of being informative, interesting, distinguishable), based on:
+
+1. visual inspection of the dendrogramms 
+2. summary statistics (e.g. average characterists of each cluster)
+3. A map of the world, where each country is colored according to its cluster affiliation
+
+Justify, how many clusters you would choose. Explain what characterises your clusters. And also mention if there are cluster affiliations which are surprising to your eyes.
+
+
+# Exercise 2: PCA
+
+## Exercise 2.1
+If necessary preprocess the data. Then carry out a principal component analysis and show a biplot.
+
+Explain which patterns can be recogized from the biplot, using the following countries and variables as examples (Please do not comment on any combination of country and variable, only on selected informative patterns):
+
+- countries: Norway, Chad, Afghanistan, South Africa, Peru, Botswana
+- variables: `democracy`, `gini_coefficient`, `life_expectancy`, `covid_confirmed`
+
+```{r}
+
+```
+
+## Exercise 2.2
+Visualize the cummulative sum of the percentage of variance explained (PVE) as a function of the number of pincipal components. What is the fraction of variance explained by the first two principle components? And based on this answer, how do you judge the explanatory power of the biplot: does the biplot give us a meaningful 2-dimensional representation of the patterns in the data?
+
+```{r}
+
+```
+
+## Exercise 2.3
+Keep only the first two principle components, and discard the other ones. Then approximately re-create the original data set (unscaled and uncentered) using only these two principal components. Briefly state how well the approximation works, based on rough inspection of the true and the approximated data.
+
+```{r}
+
+```
+
+## Exercise 2.4
+
+Calculate the loadings matrix, i.e. the correlations between the original (but possibly preprocessed) data and the principal components. And state which of the variables are not well represented by the first two principal components.
+
+```{r}
+```
+
+Then prove the following properties:
+
+1. The Euclidean norm of the row vectors of the loadings matrix are equal to 1 (it is sufficient to show this for 1 arbitrarily chosen row vector)
+```{r}
+
+```
+
+2. The principle components (i.e. the columns of the scores matrix) are uncorrelated with each other
+```{r}
+
+```
+
+3. The pairwise dot products of the principle components is equal to 0. What is the geometric interpretation of a dot product equal to 0? (it is sufficient to show this for 1 arbitrarily chosen dot product)
+
+```{r}
+
+```
+
