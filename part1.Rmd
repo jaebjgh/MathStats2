@@ -22,6 +22,9 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 library(tidyverse)
 library(factoextra)
 library(gridExtra)     
+library(sf)
+library(factoextra)
+library(ggrepel)
 ```
 
 # Data
@@ -77,7 +80,7 @@ Name three possible distance measures for hierarchical clustering. Select an app
 
 ### Antwort
 Drei mögliche Distanzmaße für das hierarchische Clustering sind die euklidische, die Kosinus und die Pearson Distanz. 
-Die für diesen Datensatz sinnvollste Distanz ist die euklidische Distanz, da wir die Staaten beispielsweise in Industrie-, Schwellen- und Entwicklungsländer teilen wollen. Dafür müssen wir die konkreten Abstände zwischen den Werten der Variablen im DataFrame wissen. 
+Die für diesen Datensatz sinnvollste Distanz ist die euklidische Distanz, da wir die Staaten beispielsweise in verschiedene Entwicklungsstufen einteilen wollen. Dafür müssen wir die konkreten Abstände zwischen den Werten der Variablen im DataFrame wissen. 
 Bei der Pearson Distanz könnten wir eher erkennen, ob sich Länder in bestimmten Bereichen ähnlich sind, also zum Beispiel, dass Argentinien in jeder Kategorie des Datensatzes einen doppelt so hohen Wert hat, wie Portugal (Nur ein Beispiel). Die Pearson Distanz würde die beiden Länder dann mit einer Geringen Distanz einstufen. 
 
 ```{r fig.height=15}
@@ -101,10 +104,19 @@ Die Linkage Methoden unterscheiden sich darin, auf welche Art und Weise zusammen
 1. Complete Linkage: Die größte Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 2. Single Linkage: Die kleinste Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 3. Average Linkage: Die durchschnittliche Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
-4. Centroid Linkage: Die Distance zwischen zwei Centroiden wird berechnet
+4. Wars's Minimum variance criterion: Hierbei werden in jedem Schritt die beiden Cluster miteinander verbunden, die zu dem geringsten Anstieg in der Varianz führen.
+
+Die am wenigsten sinnstiftende Methode ist hier die single Linkage Methode. Man sieht, dass mit jedem weiteren Schritt innerhalb des Dendogramms nur ein weiteres Land geclustert wird. Diese Methode dient eher der Abgrenzung eines einzelnen Landes, als der gröberen Gruppierung mehrerer Staaten.
+
+Die Average Linkage Methode hat bei vier Clustern interessanterweise 3 größere Cluster hervorgebracht und ein kleines Cluster, das drei der 7 Staaten der Arabischen Halbinsel umfasst. 
+
+Die Complete Linkage und Wards Methode haben beide ungefähr gleich große Ergebnismengen hervorgebracht. Die Complete Linkage Methode legt aber einen größeren Fokus darauf, stark unterschiedliche Datenpunkte voneinander zu unterscheiden, wodurch wahrscheinlich eine bessere Gruppierung erreicht wird, als nur darauf zu achten, wie stark sich die Datenpunkte in einem einzelnen Cluster unterscheiden.
+
+Daher ist meine bevorzugte Clustering-Methode die Complete Linkage Methode, da diese mir sowohl in der Theorie, als auch in den Ergebnissen augenscheinlich logischere Gruppierungen ergibt.
+
 ```{r fig.height=15} 
 # The dendrogram will be large, adjust the fig.height such that is can be acceptably recognized
-result <- hcut(
+result_complete <- hcut(
     x = select(df, -iso_alpha), 
     k = 4,
     hc_func = "agnes",          
@@ -115,6 +127,46 @@ result <- hcut(
             main = glue::glue("Method: complete, Distance: euclidean"))
 ```
 
+```{r fig.height=15} 
+# The dendrogram will be large, adjust the fig.height such that is can be acceptably recognized
+result <- hcut(
+    x = select(df, -iso_alpha), 
+    k = 4,
+    hc_func = "agnes",          
+    hc_metric = 'euclidean',  #with euclidean a histogram
+    hc_method = 'single',
+    stand = TRUE)
+  fviz_dend(result, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+            main = glue::glue("Method: single, Distance: euclidean"))
+```
+
+```{r fig.height=15} 
+# The dendrogram will be large, adjust the fig.height such that is can be acceptably recognized
+result <- hcut(
+    x = select(df, -iso_alpha), 
+    k = 4,
+    hc_func = "agnes",          
+    hc_metric = 'euclidean',  #with euclidean a histogram
+    hc_method = 'average',
+    stand = TRUE)
+  fviz_dend(result, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+            main = glue::glue("Method: average, Distance: euclidean"))
+```
+
+```{r fig.height=15} 
+# The dendrogram will be large, adjust the fig.height such that is can be acceptably recognized
+result <- hcut(
+    x = select(df, -iso_alpha), 
+    k = 4,
+    hc_func = "agnes",          
+    hc_metric = 'euclidean',  #with euclidean a histogram
+    hc_method = 'ward.D2',
+    stand = TRUE)
+  fviz_dend(result, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+            main = glue::glue("Method: Ward.D2, Distance: euclidean"))
+```
+
+
 ## Exercise 1.4
 Analyse how many clusters are suitable (in the sense of being informative, interesting, distinguishable), based on:
 
@@ -123,6 +175,55 @@ Analyse how many clusters are suitable (in the sense of being informative, inter
 3. A map of the world, where each country is colored according to its cluster affiliation
 
 Justify, how many clusters you would choose. Explain what characterises your clusters. And also mention if there are cluster affiliations which are surprising to your eyes.
+
+### Antwort
+
+Meine bevorzugte Wahl bleibt bei den 4 Clustern. Anhand des Dendogramms ist zu erkennen, dass die nächste sinnvolle Clusteranzahl bei einem deutlich höheren Wert als 4 liegen würde. Geht man in dem Dendogramm nämlich tiefer, spalten sich annähernd gleichzeitig alle 4 Cluster ein weiteres Mal,sodass dann 8 Cluster entstehen würden. Dies erscheint mir aber nicht sinnvoll, so viele Cluster zu erzeugen.
+
+Bei der Berechnung der Mittelwerte innerhalb eines Clusters zeigt sich zudem, dass sich die Unterschiede zwischen den Cluster in den Kategorien Lebenserwartung, HDI, Einkommen und Internet-Users am offensichtlichsten bei 4 Clustern zeigen.
+
+Auffällig ist natürlich die offensichtlich gleiche Einfärbung von Europa, USA, Kanada und Australien. 
+
+```{r}
+result_complete <- hcut(
+    x = select(df, -iso_alpha), 
+    k = 4,
+    hc_func = "agnes",          
+    hc_metric = 'euclidean',  #with euclidean a histogram
+    hc_method = 'complete',
+    stand = TRUE)
+  fviz_dend(result_complete, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+            main = glue::glue("Method: complete, Distance: euclidean"))
+
+
+df %>%
+  select(-iso_alpha)%>%
+  mutate(cluster = result_complete$cluster) %>%
+  group_by(cluster)%>%
+  summarize(across(everything(), mean))
+
+df %>%
+  left_join(sf)%>%
+  sf::st_as_sf()%>%
+  mutate(cluster = result_complete$cluster) %>%
+  ggplot()+
+  geom_sf(aes(fill = factor(cluster)))
+
+
+### Nur als Spielerei noch den HDI als Kategorie, wie die vereinten Nationen ihn kategorisieren.
+df %>%
+  left_join(sf)%>%
+  sf::st_as_sf()%>%
+  mutate(cluster = case_when(
+    HDI > 0.8 ~ 1,
+    HDI > 0.7 ~ 2, 
+    HDI > 0.55 ~3,
+    TRUE ~ 4
+  )) %>%
+  ggplot()+
+  geom_sf(aes(fill = factor(cluster)))
+```
+
 
 
 # Exercise 2: PCA
@@ -135,8 +236,16 @@ Explain which patterns can be recogized from the biplot, using the following cou
 - countries: Norway, Chad, Afghanistan, South Africa, Peru, Botswana
 - variables: `democracy`, `gini_coefficient`, `life_expectancy`, `covid_confirmed`
 
-```{r}
 
+
+```{r fig.height=10}
+df_pca <- df %>% select(-iso_alpha) %>% scale()
+pca <- prcomp(df_pca, center = FALSE, scale.=FALSE)
+fviz_pca_biplot(pca, 
+                repel = TRUE, 
+                geom = "text" 
+                #,select.ind = list(contrib = 10)
+                )
 ```
 
 ## Exercise 2.2
