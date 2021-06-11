@@ -304,7 +304,6 @@ Wir können den ursprünglichen Datensatz wiederherstellen, indem wir die Scores
 scores <- pca$x[,1:2 ]
 weight <- pca$rotation
 sd <- pca$scale
-mean <- pca$center
 
 
 recovered_data <- t(t(pca$x[,1:2 ] %*% t(pca$rotation[,1:2 ])) * pca$scale + pca$center) %>%
