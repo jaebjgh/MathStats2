@@ -104,7 +104,7 @@ Die Linkage Methoden unterscheiden sich darin, auf welche Art und Weise zusammen
 1. Complete Linkage: Die größte Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 2. Single Linkage: Die kleinste Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 3. Average Linkage: Die durchschnittliche Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
-4. Wars's Minimum variance criterion: Hierbei werden in jedem Schritt die beiden Cluster miteinander verbunden, die zu dem geringsten Anstieg in der Varianz führen.
+4. Ward's Minimum variance criterion: Hierbei werden in jedem Schritt die beiden Cluster miteinander verbunden, die zu dem geringsten Anstieg in der Varianz führen.
 
 Die am wenigsten sinnstiftende Methode ist hier die single Linkage Methode. Man sieht, dass mit jedem weiteren Schritt innerhalb des Dendogramms nur ein weiteres Land geclustert wird. Diese Methode dient eher der Abgrenzung eines einzelnen Landes, als der gröberen Gruppierung mehrerer Staaten.
 
@@ -123,7 +123,7 @@ result_complete <- hcut(
     hc_metric = 'euclidean',  #with euclidean a histogram
     hc_method = 'complete',
     stand = TRUE)
-  fviz_dend(result, horiz = TRUE, cex = 0.8, labels_track_height =  3,
+  fviz_dend(result_complete, horiz = TRUE, cex = 0.8, labels_track_height =  3,
             main = glue::glue("Method: complete, Distance: euclidean"))
 ```
 
@@ -180,9 +180,10 @@ Justify, how many clusters you would choose. Explain what characterises your clu
 
 Meine bevorzugte Wahl bleibt bei den 4 Clustern. Anhand des Dendogramms ist zu erkennen, dass die nächste sinnvolle Clusteranzahl bei einem deutlich höheren Wert als 4 liegen würde. Geht man in dem Dendogramm nämlich tiefer, spalten sich annähernd gleichzeitig alle 4 Cluster ein weiteres Mal,sodass dann 8 Cluster entstehen würden. Dies erscheint mir aber nicht sinnvoll, so viele Cluster zu erzeugen.
 
-Bei der Berechnung der Mittelwerte innerhalb eines Clusters zeigt sich zudem, dass sich die Unterschiede zwischen den Cluster in den Kategorien Lebenserwartung, HDI, Einkommen und Internet-Users am offensichtlichsten bei 4 Clustern zeigen.
+Bei der Berechnung der Mittelwerte innerhalb eines Clusters zeigt sich zudem, dass sich die Unterschiede zwischen den Clustern in den Kategorien Lebenserwartung, HDI, Einkommen und Internet-Users am offensichtlichsten bei 4 Clustern zeigen. 
+Wenn man sich die Cluster-Mittelwerte ansieht, und die Cluster nach der Lebenserwartung sortiert, erkennt man, dass diese Sortierung auch bei fast allen anderen Variablen zu erkennen ist. Nur beim gini_coefficient, democracy und freedom sind die Cluster an zweiter und dritter Stelle vertauscht. 
 
-Auffällig ist natürlich die offensichtlich gleiche Einfärbung von Europa, USA, Kanada und Australien. 
+Auffällig ist bei der Einfärbung der Weltkarte die offensichtlich gleiche Einfärbung von Europa, USA, Kanada und Australien. 
 
 ```{r}
 result_complete <- hcut(
@@ -200,14 +201,16 @@ df %>%
   select(-iso_alpha)%>%
   mutate(cluster = result_complete$cluster) %>%
   group_by(cluster)%>%
-  summarize(across(everything(), mean))
+  summarize(across(everything(), mean)) %>%
+  arrange(by = desc(life_expectancy))
 
 df %>%
   left_join(sf)%>%
   sf::st_as_sf()%>%
   mutate(cluster = result_complete$cluster) %>%
   ggplot()+
-  geom_sf(aes(fill = factor(cluster)))
+  geom_sf(aes(fill = factor(cluster)))+
+  labs(title = "Cluster laut der complete Linkage Methode mit 4 Clustern")
 
 
 ### Nur als Spielerei noch den HDI als Kategorie, wie die vereinten Nationen ihn kategorisieren.
@@ -221,7 +224,8 @@ df %>%
     TRUE ~ 4
   )) %>%
   ggplot()+
-  geom_sf(aes(fill = factor(cluster)))
+  geom_sf(aes(fill = factor(cluster)))+
+  labs(title = "HDI-Kategorien laut der UN")
 ```
 
 
@@ -236,30 +240,79 @@ Explain which patterns can be recogized from the biplot, using the following cou
 - countries: Norway, Chad, Afghanistan, South Africa, Peru, Botswana
 - variables: `democracy`, `gini_coefficient`, `life_expectancy`, `covid_confirmed`
 
+### Antwort
+Zunächst kann man erkennen, dass die erste PC mit fast allen Variablen aus dem Datensatz positiv korreliert. Einzig der gini_coefficient und freedom sind negativ korreliert und stellen neben der covid_confirmed Variable die einzigen beiden Variablen dar, die eher negativ behaftet sind, wenn sie einen hohen Wert aufweisen (ein hoher gini_coefficient-Wert steht für hohe Ungleichheit und ein hoher freedom Wert steht für wenig Freiheit). Im Gegensatz dazu sind alle anderen Variablen mit hohen Werten eher positiv behaftet (ein hoher democracy Wert steht für bessere Demokratie, eine hohe life_expectancy steht für ein langes Leben). 
+Insofern können wir davon ausgehen, dass Länder, die einen hohen positiven Score auf der ersten Principal Komponent haben, einen hohen Lebensstandard ermöglichen. Länder, die dagegen einen negativen Score haben, sind eher lebensunwürdig und bieten weniger essentielle Lebensgrundlagen.
 
+Interessanterweise korrelieren die democracy und die freedom Variable fast exakt negativ miteinander. Die gini_coefficient Variable ist dagegen gänzlich unkorreliert mit der democracy und der freedom Variable, was dafür spricht, dass die Demokratie eines Landes nichts mit der Ungleichheit zu tun hat. 
+Außerdem fällt auf, dass die meisten Variablen ungefähr gleich stark auf die beiden Principal Components "laden". Die stärksten Variablen sind aber die democracy und die freedom Variable, während die covid_confirmed die schwächste Variable ist. 
 
+Einzelne Variablen:
+- democracy: Laut dem Democracy loading, zählt Norwegen zu den am stärksten demokratisierten Ländern, während Chad auf einen der letzten Plätze fällt.
+- gini_coefficient: Botswana und South Africa zählen zu den Ländern mit dem am stärksten ungleich verteilten Vermögen, während in Norwegen das Vermögen gleicher verteilt zu sein scheint. 
+- life_expectancy: Die Lebenserwartung korreliert stark mit dem prozentualen Zugang zu Wasser, der Kalorienaufnahme und dem Zugang zu sanitären Einrichtungen. Länder wie Belarus und Kuwait haben hier einen ähnlich hohen Score wie Japan und Australien. In Ländern wie Chad und Afghanistan ist die Lebenserwartung sehr niedrig. 
+- covid_confirmed: Die covid_confirmed-Variable korreliert sehr stark mit der ersten PC und damit auch mit dem income_person. Länder, die also einen höheren Lebensstandard haben, scheinen somit auch stärker von Covid-19 betroffen zu sein. 
+
+Peru scheint auf allen einzelnen Variablen und den PCs einen niedrigen score zu besitzen. Es ist also ein stark mittelmäßiges Land, das keine besondere Eigenschaft bei den einzelnen Variablen hat.
 ```{r fig.height=10}
 df_pca <- df %>% select(-iso_alpha) %>% scale()
 pca <- prcomp(df_pca, center = FALSE, scale.=FALSE)
 fviz_pca_biplot(pca, 
                 repel = TRUE, 
                 geom = "text" 
-                #,select.ind = list(contrib = 10)
                 )
 ```
 
 ## Exercise 2.2
 Visualize the cummulative sum of the percentage of variance explained (PVE) as a function of the number of pincipal components. What is the fraction of variance explained by the first two principle components? And based on this answer, how do you judge the explanatory power of the biplot: does the biplot give us a meaningful 2-dimensional representation of the patterns in the data?
 
+### Antwort
+Die ersten beiden Principal Components erklären etwa 77.6% der gesamten Varianz in dem Datensatz, wovon die erste PC bereits 67.6% erklärt. 
+Der Biplot gibt uns somit bereits eine sehr bedeutsame Repräsentation des Datensatzes. Diese hoher PVE-Wert kommt wahrscheinlich auch daher, dass sehr viele der Variablen in dem Datensatz bereits miteinander korrelieren und somit viele Informationen durch weitere Variablen nur redundant sind. Die Lebenserwartung und der Zugang zum Wasser beispielsweise sind beinahe 100% korreliert, womit eine der beiden Variablen auch weg gelassen werden könnte und der PVE-Wert nur sehr wenig geringer würde.
+
 ```{r}
 
+scores <- pca$x
+
+
+var <- cov(scores) %>% diag()
+
+stats <- tibble(pc = factor(1:13),        
+           variance = var,                    
+           pve = var / sum(var),               
+           cum_pve = cumsum(pve))               
+stats %>%
+  ggplot() + 
+  geom_col(aes(pc, cum_pve, fill = "Cummulative PVE")) +
+  geom_col(aes(pc, pve, fill = "PVE")) +
+  labs(x = "Principle Components", 
+       y= "Percentage of Variance Explained",
+       fill = "Type", 
+       title = "Erklärte Varianz unter Verwendung entsprechender PC")
+
+stats$cum_pve[2]
 ```
 
 ## Exercise 2.3
 Keep only the first two principle components, and discard the other ones. Then approximately re-create the original data set (unscaled and uncentered) using only these two principal components. Briefly state how well the approximation works, based on rough inspection of the true and the approximated data.
 
-```{r}
+### Ansatz
 
+Wir können den ursprünglichen Datensatz wiederherstellen, indem wir die Scores aus den ersten beiden Spalten der Scores-Matrix mit der Transponierten Weight-Matrix(den ersten beiden Spalten dieser). Danach müssen wir die Daten nur wieder mit der Standardabweichung der originalen Daten multiplizieren und den Mittelwert addieren.
+
+```{r}
+scores <- pca$x[,1:2 ]
+weight <- pca$rotation
+sd <- pca$scale
+mean <- pca$center
+
+
+recovered_data <- t(t(pca$x[,1:2 ] %*% t(pca$rotation[,1:2 ])) * pca$scale + pca$center) %>%
+  as.data.frame()
+
+select(df, -iso_alpha) %>%
+  -recovered_data %>%
+  summarise_each(funs( median( .,na.rm = TRUE)))
 ```
 
 ## Exercise 2.4
