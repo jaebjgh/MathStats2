@@ -90,8 +90,7 @@ d_eucl <- df %>%
   select(-(iso_alpha)) %>%
   get_dist(method = "euclidean", stand = TRUE)
 
-fviz_dist(d_eucl) +
-  geom_text(aes(label = round(value, 2)), size = 2)
+fviz_dist(d_eucl)
   
 ```
 
