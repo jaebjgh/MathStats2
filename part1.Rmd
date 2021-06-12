@@ -81,7 +81,7 @@ Name three possible distance measures for hierarchical clustering. Select an app
 ### Antwort
 Drei mögliche Distanzmaße für das hierarchische Clustering sind die euklidische, die Kosinus und die Pearson Distanz. 
 Die für diesen Datensatz sinnvollste Distanz ist die euklidische Distanz, da wir die Staaten beispielsweise in verschiedene Entwicklungsstufen einteilen wollen. Dafür müssen wir die konkreten Abstände zwischen den Werten der Variablen im DataFrame wissen. 
-Bei der Pearson Distanz könnten wir eher erkennen, ob sich Länder in bestimmten Bereichen ähnlich sind, also zum Beispiel, dass Argentinien in jeder Kategorie des Datensatzes einen doppelt so hohen Wert hat, wie Portugal (Nur ein Beispiel). Die Pearson Distanz würde die beiden Länder dann mit einer Geringen Distanz einstufen. 
+Bei der Pearson Distanz könnten wir eher erkennen, ob sich Länder in bestimmten Bereichen ähnlich sind, also zum Beispiel, dass Argentinien in jeder Kategorie des Datensatzes einen doppelt so hohen Wert hat, wie Portugal (Nur ein Beispiel). Die Pearson Distanz würde die beiden Länder dann mit einer geringen Distanz einstufen. 
 
 ```{r fig.height=15}
 # The distance matrix will be large, adjust the fig.height such that is can be acceptably recognized
@@ -104,7 +104,7 @@ Die Linkage Methoden unterscheiden sich darin, auf welche Art und Weise zusammen
 1. Complete Linkage: Die größte Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 2. Single Linkage: Die kleinste Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
 3. Average Linkage: Die durchschnittliche Distanz zwischen zwei Datenpunkt verschiedener Cluster wird berechnet.
-4. Ward's Minimum variance criterion: Hierbei werden in jedem Schritt die beiden Cluster miteinander verbunden, die zu dem geringsten Anstieg in der Varianz führen.
+4. Ward's Minimum variance criterion: Hierbei werden in jedem Schritt die beiden Cluster miteinander verbunden, die zu dem geringsten Anstieg in der Varianz führen. 
 
 Die am wenigsten sinnstiftende Methode ist hier die single Linkage Methode. Man sieht, dass mit jedem weiteren Schritt innerhalb des Dendogramms nur ein weiteres Land geclustert wird. Diese Methode dient eher der Abgrenzung eines einzelnen Landes, als der gröberen Gruppierung mehrerer Staaten.
 
@@ -185,7 +185,7 @@ Wenn man sich die Cluster-Mittelwerte ansieht, und die Cluster nach der Lebenser
 
 Auffällig ist bei der Einfärbung der Weltkarte die offensichtlich gleiche Einfärbung von Europa, USA, Kanada und Australien. 
 
-```{r}
+```{r fig.height=15}
 result_complete <- hcut(
     x = select(df, -iso_alpha), 
     k = 4,
@@ -195,8 +195,9 @@ result_complete <- hcut(
     stand = TRUE)
   fviz_dend(result_complete, horiz = TRUE, cex = 0.8, labels_track_height =  3,
             main = glue::glue("Method: complete, Distance: euclidean"))
+```
 
-
+```{r}
 df %>%
   select(-iso_alpha)%>%
   mutate(cluster = result_complete$cluster) %>%
@@ -268,7 +269,7 @@ Visualize the cummulative sum of the percentage of variance explained (PVE) as a
 
 ### Antwort
 Die ersten beiden Principal Components erklären etwa 77.6% der gesamten Varianz in dem Datensatz, wovon die erste PC bereits 67.6% erklärt. 
-Der Biplot gibt uns somit bereits eine sehr bedeutsame Repräsentation des Datensatzes. Diese hoher PVE-Wert kommt wahrscheinlich auch daher, dass sehr viele der Variablen in dem Datensatz bereits miteinander korrelieren und somit viele Informationen durch weitere Variablen nur redundant sind. Die Lebenserwartung und der Zugang zum Wasser beispielsweise sind beinahe 100% korreliert, womit eine der beiden Variablen auch weg gelassen werden könnte und der PVE-Wert nur sehr wenig geringer würde.
+Der Biplot gibt uns somit bereits eine sehr bedeutsame Repräsentation des Datensatzes. Diese hohe PVE-Wert kommt wahrscheinlich auch daher, dass sehr viele der Variablen in dem Datensatz bereits miteinander korrelieren und somit viele Informationen durch weitere Variablen nur redundant sind. Die Lebenserwartung und der Zugang zum Wasser beispielsweise sind beinahe 100% korreliert, womit eine der beiden Variablen auch weg gelassen werden könnte und der PVE-Wert nur sehr wenig geringer würde.
 
 ```{r}
 
@@ -298,9 +299,13 @@ Keep only the first two principle components, and discard the other ones. Then a
 
 ### Ansatz
 
-Wir können den ursprünglichen Datensatz wiederherstellen, indem wir die Scores aus den ersten beiden Spalten der Scores-Matrix mit der Transponierten Weight-Matrix(den ersten beiden Spalten dieser). Danach müssen wir die Daten nur wieder mit der Standardabweichung der originalen Daten multiplizieren und den Mittelwert addieren.
+Wir können den ursprünglichen Datensatz wiederherstellen, indem wir die Scores aus den ersten beiden Spalten der Scores-Matrix mit der Transponierten Weight-Matrix(den ersten beiden Spalten dieser) multiplizieren. Danach müssen wir die Daten nur wieder mit der Standardabweichung der originalen Daten multiplizieren und den Mittelwert addieren.
 
-```{r}
+Die Approximation funktioniert relativ gut, es sind bei einigen Variablen aber trotzdem starke Abweichungen zu erkennen. Zudem gibt es in dem approximierten Datensatz auch Variablen in einem Wertebereich, der gar nicht exitiert, zum Beispiel hat Afghanistan ein negatives income_person oder Luxemburg einen Wasserzugang von über 112%. 
+
+Die Histogramme zeigen auch Übereinstimmungen, aber es sind auch deutliche Unterschiede zu sehen. Die beiden ersten Principal Components erklären eben nur knapp 78% der Varianz, dementsprechend stimmt der zurückgewonnene Datensatz auch nur zu 78% dem Originaldatensatz.
+
+```{r fig.height=10}
 scores <- pca$x[,1:2 ]
 weight <- pca$rotation
 sd <- pca$scale
@@ -309,33 +314,75 @@ sd <- pca$scale
 recovered_data <- t(t(pca$x[,1:2 ] %*% t(pca$rotation[,1:2 ])) * pca$scale + pca$center) %>%
   as.data.frame()
 
-select(df, -iso_alpha) %>%
-  -recovered_data %>%
-  summarise_each(funs( median( .,na.rm = TRUE)))
+recovered_data %>%
+  summary()
 ```
+
+### Histogramm der beiden Datensätze
+```{r fig.height=10}
+columns <- colnames(recovered_data)
+
+df_orig <- df %>%
+  mutate("dataframe" = "original") %>%
+  select(-iso_alpha) %>%
+  rownames_to_column()
+
+combined_df <- 
+  recovered_data %>%
+  rownames_to_column()  %>%
+  mutate("dataframe" = "recovered") %>%
+  rbind(.data, df_orig) %>%
+  pivot_longer(cols = columns, names_to = "variables", values_to = "value")
+
+ggplot(combined_df, aes(value, fill = dataframe)) + 
+  geom_density(alpha = 0.5, position = "identity") +
+  facet_wrap(variables ~ ., scales = "free", ncol = 2)
+```
+
 
 ## Exercise 2.4
 
 Calculate the loadings matrix, i.e. the correlations between the original (but possibly preprocessed) data and the principal components. And state which of the variables are not well represented by the first two principal components.
 
+### Antwort
+Die am wenigsten stark von den ersten beiden PCs repräsentierten Variablen sind covid_confirmed und income_person, die jeweils nur einen loading score von 0.24 und 0.28 besitzen.
+
+Die am stärksten repräsentierten Variablen sind democracy und freedom mit einem score von 0.58 und 0.6. 
+
 ```{r}
+weight <- pca$rotation
+data.frame(weight[, 1:2]) %>%
+  mutate(eucl_length = sqrt(PC1 * PC1 + PC2 * PC2)) %>%
+  arrange(eucl_length)
 ```
 
 Then prove the following properties:
 
 1. The Euclidean norm of the row vectors of the loadings matrix are equal to 1 (it is sufficient to show this for 1 arbitrarily chosen row vector)
 ```{r}
-
+sum_ = 0
+for(v in weight[1,]){
+  sum_ = sum_ + v^2
+}
+print(sqrt(sum_))
 ```
 
 2. The principle components (i.e. the columns of the scores matrix) are uncorrelated with each other
 ```{r}
-
+scores <- pca$x
+cor(scores) %>%
+  round(2) %>%
+  data.frame()
 ```
 
 3. The pairwise dot products of the principle components is equal to 0. What is the geometric interpretation of a dot product equal to 0? (it is sufficient to show this for 1 arbitrarily chosen dot product)
 
-```{r}
+### Antwort
+Das Ergebnis eines Skalarproduktes zweier Vektoren gleich 0 bedeutet, dass diese beiden Vektoren aufeinander orthogonal stehen, sie sind als nicht korreliert. Im Endeffekt bedeutet das dasselbe wie die Korrelationsmatrix von der Aufgabe darüber. Das Skalarprodukt eines Vektors mit sich selbst bedeutet hingegen, dass beide Vektoren in die gleiche Richtung zeigen, wenn es sich um normierte Vektoren handelt. Die PCs sind normiert, dadurch kann dieser Schluss gezogen werden. 
 
+Geometrisch interpretiert handelt es sich also um einen Vektor, der um 90° gegenüber dem anderen Vektor gedreht ist. 
+```{r}
+weight[,2] %*% weight[,3]    # ergibt 0, also orthogonal
+weight[,2] %*% weight[,2]    # ergibt 1, also gleiche Richtung
 ```
 
