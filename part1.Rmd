@@ -179,6 +179,8 @@ Justify, how many clusters you would choose. Explain what characterises your clu
 
 Meine bevorzugte Wahl bleibt bei den 4 Clustern. Anhand des Dendogramms ist zu erkennen, dass die nächste sinnvolle Clusteranzahl bei einem deutlich höheren Wert als 4 liegen würde. Geht man in dem Dendogramm nämlich tiefer, spalten sich annähernd gleichzeitig alle 4 Cluster ein weiteres Mal,sodass dann 8 Cluster entstehen würden. Dies erscheint mir aber nicht sinnvoll, so viele Cluster zu erzeugen.
 
+Inhaltlich ist die Interpretation der Cluster auch bei 4 Cluster sehr interessant. Das erste Cluster beinhaltet hauptsächlich Länder in Europa, sowie Nordamerika und Australien, also Länder, die den Industrieländern zugeordnet werden können. Das zweite Cluster beinhaltet Staaten aus dem nahem Oste und Asien, aus dem Bereich der Schwellenländer. Im dritten Cluster befinden sich Staaten aus Südamerika und Afrika und im vierten Cluster hauptsächlich Länder aus Afrika.
+
 Bei der Berechnung der Mittelwerte innerhalb eines Clusters zeigt sich zudem, dass sich die Unterschiede zwischen den Clustern in den Kategorien Lebenserwartung, HDI, Einkommen und Internet-Users am offensichtlichsten bei 4 Clustern zeigen. 
 Wenn man sich die Cluster-Mittelwerte ansieht, und die Cluster nach der Lebenserwartung sortiert, erkennt man, dass diese Sortierung auch bei fast allen anderen Variablen zu erkennen ist. Nur beim gini_coefficient, democracy und freedom sind die Cluster an zweiter und dritter Stelle vertauscht. 
 
@@ -255,8 +257,7 @@ Einzelne Variablen:
 
 Peru scheint auf allen einzelnen Variablen und den PCs einen niedrigen score zu besitzen. Es ist also ein stark mittelmäßiges Land, das keine besondere Eigenschaft bei den einzelnen Variablen hat.
 ```{r fig.height=10}
-df_pca <- df %>% select(-iso_alpha) %>% scale()
-pca <- prcomp(df_pca, center = FALSE, scale.=FALSE)
+pca <- prcomp(df%>% select(-iso_alpha), center = TRUE, scale.=TRUE)
 fviz_pca_biplot(pca, 
                 repel = TRUE, 
                 geom = "text" 
@@ -344,13 +345,16 @@ ggplot(combined_df, aes(value, fill = dataframe)) +
 Calculate the loadings matrix, i.e. the correlations between the original (but possibly preprocessed) data and the principal components. And state which of the variables are not well represented by the first two principal components.
 
 ### Antwort
-Die am wenigsten stark von den ersten beiden PCs repräsentierten Variablen sind covid_confirmed und income_person, die jeweils nur einen loading score von 0.24 und 0.28 besitzen.
+Die am wenigsten stark von den ersten beiden PCs repräsentierten Variablen sind covid_confirmed und gini_coefficient, die jeweils nur einen loading score von 0.63 und 0.73
 
-Die am stärksten repräsentierten Variablen sind democracy und freedom mit einem score von 0.58 und 0.6. 
+Die am stärksten repräsentierten Variablen sind democracy und HDI mit einem score von jeweils 0.96.
 
 ```{r}
-weight <- pca$rotation
-data.frame(weight[, 1:2]) %>%
+X <- scale(select(df, -iso_alpha), center = TRUE, scale = TRUE)
+loadings <- cor(X, pca$x[,1:2 ])
+loadings <- data.frame(round(loadings,2)) 
+
+data.frame(loadings[, 1:2]) %>%
   mutate(eucl_length = sqrt(PC1 * PC1 + PC2 * PC2)) %>%
   arrange(eucl_length)
 ```
@@ -359,8 +363,9 @@ Then prove the following properties:
 
 1. The Euclidean norm of the row vectors of the loadings matrix are equal to 1 (it is sufficient to show this for 1 arbitrarily chosen row vector)
 ```{r}
+loadings <- cor(X, pca$x)
 sum_ = 0
-for(v in weight[1,]){
+for(v in loadings[1,]){
   sum_ = sum_ + v^2
 }
 print(sqrt(sum_))
